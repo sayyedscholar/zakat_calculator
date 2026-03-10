@@ -40,7 +40,11 @@ class LanguageSelectionScreen extends StatelessWidget {
     final isSelected = provider.locale.languageCode == code;
     return OutlinedButton(
       onPressed: () => provider.changeLanguage(code),
-      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: BorderSide(color: isSelected ? Colors.teal : Colors.grey, width: isSelected ? 2 : 1), backgroundColor: isSelected ? Colors.teal.withValues(alpha: 0.1) : null),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        side: BorderSide(color: isSelected ? Colors.teal : Colors.grey, width: isSelected ? 2 : 1),
+        backgroundColor: isSelected ? Colors.teal.withValues(alpha: 0.1) : null,
+      ),
       child: Row(children: [Icon(Icons.language, color: isSelected ? Colors.teal : Colors.grey), const SizedBox(width: 16), Expanded(child: Text(label)), if (isSelected) const Icon(Icons.check_circle, color: Colors.teal)]),
     );
   }

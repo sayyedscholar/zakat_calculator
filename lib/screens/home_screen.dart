@@ -148,6 +148,11 @@ class DashboardScreen extends StatelessWidget {
                 onTap: () async {
                   Navigator.pop(dialogContext);
                   await provider.autoDetectLocation();
+                  if (context.mounted && provider.location == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('location_detect_failed'.tr(context))),
+                    );
+                  }
                 },
               ),
             ],
@@ -256,7 +261,24 @@ class DashboardScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              if (metalRates != null && metalRates.location != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_pin, size: 14, color: Colors.teal),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Rates for ${metalRates.location}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.teal, fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (metalRates != null) ...[
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
@@ -332,7 +354,7 @@ class DashboardScreen extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                     content: Text(success
-                                        ? 'saved_successfully'.tr(context)
+                                        ? 'rates_updated'.tr(context)
                                         : 'update_failed'.tr(context))));
                           }
                         },

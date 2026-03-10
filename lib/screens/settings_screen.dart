@@ -54,7 +54,12 @@ class SettingsScreen extends StatelessWidget {
   Widget _buildLanguageTile(BuildContext context, String label, String code) {
     final provider = Provider.of<AppProvider>(context);
     final isSelected = provider.locale.languageCode == code;
-    return ListTile(title: Text(label), trailing: isSelected ? const Icon(Icons.check, color: Colors.teal) : null, tileColor: isSelected ? Colors.teal.withValues(alpha: 0.1) : null, onTap: () => provider.changeLanguage(code));
+    return ListTile(
+      title: Text(label),
+      trailing: isSelected ? const Icon(Icons.check, color: Colors.teal) : null,
+      tileColor: isSelected ? Colors.teal.withValues(alpha: 0.1) : null,
+      onTap: () => provider.changeLanguage(code),
+    );
   }
 
   Widget _buildThemeTile(BuildContext context, String label, String mode, IconData icon) {

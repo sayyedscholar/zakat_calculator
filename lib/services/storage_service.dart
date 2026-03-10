@@ -12,6 +12,7 @@ class StorageService {
   static const String _locationKey = 'saved_location';
   static const String _notificationsKey = 'notifications_enabled';
   static const String _firstLaunchKey = 'first_launch';
+  static const String _countryCodeKey = 'saved_country_code';
 
   Future<SharedPreferences> _getPrefs() async {
     return await SharedPreferences.getInstance();
@@ -107,6 +108,16 @@ class StorageService {
   Future<String?> getLocation() async {
     final prefs = await _getPrefs();
     return prefs.getString(_locationKey);
+  }
+
+  Future<void> saveCountryCode(String code) async {
+    final prefs = await _getPrefs();
+    await prefs.setString(_countryCodeKey, code);
+  }
+
+  Future<String?> getCountryCode() async {
+    final prefs = await _getPrefs();
+    return prefs.getString(_countryCodeKey);
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {

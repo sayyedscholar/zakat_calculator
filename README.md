@@ -1,94 +1,114 @@
 # 🌙 Zakat Calculator
 
-A premium, comprehensive Islamic Zakat calculator built with Flutter. This app follows the **Hanafi school of jurisprudence** and incorporates the spiritual essence of Islamic teachings with a modern, high-end user experience.
+A comprehensive Islamic Zakat calculator built with Flutter, following the **Hanafi school of jurisprudence**. Features real-time gold & silver rates, city-level rate adjustments for India, automatic location detection, and full offline support.
 
-![App Header](assets/images/header.png) *Note: Add your app screenshot here*
+---
 
-## ✨ Premium Features
+## ✨ Features
 
-### 🕌 Religious Excellence
-- **Bismillah Startup**: A beautiful, dedicated loading screen featuring "**بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ**" on a premium teal background.
-- **Quran & Hadith Integration**: The home screen features inspiring verses (Quran 2:43) and Sahih Hadith (Narrated by Ibn Umar) regarding the importance of Zakat.
-- **Hanafi Standard**: Strictly follows calculations based on 595 grams of silver (Nisab).
+### 🕌 Islamic Excellence
+- **Hanafi Standard**: Nisab calculated on 595 grams of silver (more conservative, widely used)
+- **Gold Nisab Display**: Shows value of 87.5g gold nisab at current market rate
+- **Quran & Hadith**: Home screen features Quran 2:43 and Bukhari Hadith on Zakat
+- **Bismillah Splash**: Dedicated startup screen with full Arabic Basmala
 
-### 🌍 Global & Intelligent
-- **Auto Currency Detection**: Leverages GPS to automatically detect your country and set the local currency (INR, USD, CAD, SAR, AED, etc.).
-- **Real-Time Market Rates**: Fetches live gold and silver prices with purity adjustments (24K, 22K, 18K, 14K).
-- **Multi-Language Support**: Fully localized in English, Urdu (اردو), Arabic (العربية), and Hindi (हिन्दी).
+### 📈 Real-Time Market Rates
+- **Auto-update on startup**: Rates refresh automatically in the background when online
+- **Live gold & silver rates** via [gold-api.com](https://gold-api.com) — Free, no key required, no rate limits
+- **Real-time currency conversion** via [exchangerate-api.com](https://api.exchangerate-api.com) — USD → any local currency
+- **Purity breakdowns**: 24K, 22K, 18K, 14K gold + 99.9% silver
+- **Offline fallback**: Accurate rates (updated March 2026) used when no internet
 
-### 🎨 High-End UI/UX
-- **Separated Rate Cards**: Clean, organized dashboard with distinct sections for Gold and Silver rates.
-- **Standardized Currency**: Uses international currency codes (e.g., 10,000 INR) for professional clarity.
-- **Material 3 Design**: Modern, responsive, and supports **Dynamic Dark Mode**.
+### 🌍 Global & Location-Aware
+- **Auto-detect location**: GPS-based location detection sets currency automatically (INR, USD, AED, SAR, GBP, PKR, and 15+ currencies)
+- **City search**: Search any city worldwide via OpenStreetMap Nominatim
+- **India city-wise rates**: Gold prices vary 0.5–1.5% across Indian cities due to state taxes — Mumbai, Delhi, Chennai, Kolkata, Hyderabad, Bangalore, Kochi, and 40+ cities supported
+- **Country-level rates**: Correct local currency for 25+ countries worldwide
+
+### 🌐 Multi-Language
+- English, اردو, العربية, हिन्दी
+
+### 🎨 Premium UI/UX
+- Material 3 Design with Dynamic Dark Mode
+- Separated Gold / Silver rate cards with purity breakdown
+- City-specific rate indicator on home screen
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.2.0+)
-- [Dart SDK](https://dart.dev/get-dart)
-- Android Studio / VS Code
+### Prerequisites
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.2.0
 
-### 2. Installation
+### Installation
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/zakat_calculator.git
-
-# Navigate to project
+git clone https://github.com/sayyedscholar/zakat_calculator.git
 cd zakat_calculator
-
-# Get dependencies
 flutter pub get
-
-# Run the app
 flutter run
 ```
 
 ---
 
-## 🌐 Deployment to Vercel (Flutter Web)
+## 🌐 Web Deployment (Vercel)
 
-The app is fully compatible with Flutter Web. To deploy to Vercel:
+```bash
+# Build locally
+flutter build web --release --base-href /
 
-1. **Enable Web**:
-   ```bash
-   flutter config --enable-web
-   ```
-2. **Build for Web**:
-   ```bash
-   flutter build web --release
-   ```
-3. **Deploy**:
-   - Install Vercel CLI: `npm i -g vercel`
-   - Run `vercel` in the project root.
-   - When asked for the output directory, specify `build/web`.
-
-*Alternatively, push to GitHub and connect your repo to Vercel. Use `flutter build web --release` as the build command.*
+# Deploy via Vercel CLI
+npm i -g vercel
+cd build/web
+vercel --prod
+```
 
 ---
 
-## 🏗️ Project Architecture
+## 🏗️ Architecture
 
 ```
 lib/
-├── models/      # Zakat & Metal Rate data structures
-├── providers/   # State Management (AppProvider)
-├── screens/     # UI Pages (Home, Calculator, etc.)
-├── services/    # Logic (Location, Rates, Storage)
-└── widgets/     # Reusable components (Bismillah Splash)
+├── models/
+│   ├── metal_rates.dart         # Gold/silver rate model with location field
+│   └── zakat_calculation.dart   # Zakat calculation data model
+├── providers/
+│   └── app_provider.dart        # State management, auto-update, location
+├── screens/
+│   ├── home_screen.dart         # Dashboard with live rates + location display
+│   ├── calculator_screen.dart   # Zakat calculator form
+│   ├── settings_screen.dart     # Language, theme, data settings
+│   └── about_screen.dart        # App info and Islamic references
+├── services/
+│   ├── rates_service.dart       # Live rate fetching, city adjustment, offline cache
+│   ├── location_service.dart    # GPS, geocoding, city search
+│   ├── storage_service.dart     # SharedPreferences persistence
+│   └── localization_service.dart # Multi-language support
+└── widgets/
+    └── bismillah_splash.dart    # Startup splash screen
 ```
 
-## 🔐 Privacy
-- **100% Offline-First**: No financial data ever leaves your device. Everything is stored in local persistent storage.
-- **Open Source**: Transparent calculation logic as per Shariah.
-
-## 👨‍💻 Developer
-**Amaanullah Sayyed**  
-*Software Engineer*  
-Version: 1.0.1  
+### Rate Fetching Strategy
+1. **Primary**: `gold-api.com` → Real-time XAU/XAG price in USD (free, no key, no limits)
+2. **Currency conversion**: `exchangerate-api.com` → USD to local currency (free, ~1500 req/month)
+3. **India city adjustment**: Static factor map for 40+ Indian cities based on local state taxes
+4. **Offline fallback**: Pre-loaded accurate rates (March 2026 — INR gold ₹16,100/gram, silver ₹290/gram) stored locally
 
 ---
 
-**Barakallahu Feekum** (May Allah bless you)
+## 🔐 Privacy
+
+- All financial data stored **locally only** via SharedPreferences
+- No personal data transmitted — only public market data APIs are called
+- Open source calculation logic as per Shariah
+
+---
+
+## 👨‍💻 Developer
+
+**Amaanullah Sayyed** — Software Engineer  
+Version: 1.1.0
+
+---
+
+**بَارَكَ اللّهُ فِيكَ** — Barakallahu Feekum  
 Made with ❤️ for the Muslim Ummah

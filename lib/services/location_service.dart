@@ -6,7 +6,9 @@ import 'package:http/http.dart' as http;
 class LocationService {
   /// Fetch location suggestions from Nominatim (OpenStreetMap)
   Future<List<Map<String, dynamic>>> fetchLocationSuggestions(String query) async {
-    if (query.length < 3) return [];
+    if (query.length < 3) {
+      return [];
+    }
 
     try {
       final url = Uri.parse(
@@ -40,6 +42,7 @@ class LocationService {
     }
     return [];
   }
+
   Future<bool> isLocationServiceEnabled() async {
     return await Geolocator.isLocationServiceEnabled();
   }
@@ -53,7 +56,7 @@ class LocationService {
   }
 
   Future<Position?> getCurrentPosition() async {
-    bool serviceEnabled = await isLocationServiceEnabled();
+    final bool serviceEnabled = await isLocationServiceEnabled();
     if (!serviceEnabled) {
       return null;
     }
@@ -70,22 +73,27 @@ class LocationService {
       return null;
     }
 
-    return await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.medium,
-      ),
-    );
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<String?> getLocationName(Position position) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
+        final Placemark place = placemarks[0];
         
         final List<String> parts = [];
         if (place.subLocality != null && place.subLocality!.isNotEmpty) {
@@ -112,10 +120,10 @@ class LocationService {
 
   Future<String?> getCountryCode(Position position) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (placemarks.isNotEmpty) {
         return placemarks[0].isoCountryCode;

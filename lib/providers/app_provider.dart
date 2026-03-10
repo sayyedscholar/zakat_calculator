@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/zakat_calculation.dart';
 import '../models/metal_rates.dart';
 import '../services/storage_service.dart';
@@ -14,6 +16,7 @@ class AppProvider with ChangeNotifier {
   String _themeModePreference = 'system';
   MetalRates? _metalRates;
   String? _location;
+  String? _countryCode;
   ZakatCalculation? _lastCalculation;
   List<ZakatCalculation> _savedCalculations = [];
   bool _isLoading = false;
@@ -27,6 +30,7 @@ class AppProvider with ChangeNotifier {
   bool get isDarkMode => _themeModePreference == 'dark';
   MetalRates? get metalRates => _metalRates;
   String? get location => _location;
+  String? get countryCode => _countryCode;
   ZakatCalculation? get lastCalculation => _lastCalculation;
   List<ZakatCalculation> get savedCalculations => _savedCalculations;
   bool get isLoading => _isLoading;
@@ -37,7 +41,7 @@ class AppProvider with ChangeNotifier {
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     try {
       debugPrint("AppProvider: Starting initialization");
       _isLoading = true;
@@ -45,39 +49,98 @@ class AppProvider with ChangeNotifier {
       // 1. Critical values for UI routing - Load these first
       final isFirstLaunch = await _storageService.isFirstLaunch();
       _themeModePreference = await _storageService.getTheme();
-      
+
       final savedLanguage = await _storageService.getLanguage();
       if (savedLanguage != null) {
         _locale = Locale(savedLanguage);
       }
-      
-      // Critical values are loaded, sets the flag
+
       _isFirstLaunchValue = isFirstLaunch;
       _isInitialized = true;
-      
+
       debugPrint("AppProvider: Critical initialization complete");
       notifyListeners();
 
-      // 2. Secondary values - load these afterwards
+      // 2. Load secondary values
       _metalRates = await _storageService.getMetalRates();
       if (_metalRates == null) {
         _metalRates = _ratesService.getLatestOfflineRates();
-        _storageService.saveMetalRates(_metalRates!);
+        await _storageService.saveMetalRates(_metalRates!);
       }
 
       _location = await _storageService.getLocation();
+      _countryCode = await _storageService.getCountryCode();
       _lastCalculation = await _storageService.getLastCalculation();
       _savedCalculations = await _storageService.getSavedCalculations();
       _notificationsEnabled = await _storageService.getNotificationsEnabled();
+
+      notifyListeners();
+
+      // 3. Auto-update rates in background if online (non-blocking)
+      _autoUpdateRatesIfOnline();
+
     } catch (e) {
       debugPrint("Initialization error: $e");
-      // Fallback to ensure UI doesn't hang if storage fails
       _isFirstLaunchValue ??= false;
       _metalRates ??= _ratesService.getLatestOfflineRates();
       _isInitialized = true;
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Auto-updates rates silently in the background if internet is available.
+  /// Also auto-detects location if none is saved, and invalidates stale cache.
+  Future<void> _autoUpdateRatesIfOnline() async {
+    try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+      final isOnline = connectivityResult.any((r) =>
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.ethernet);
+
+      if (isOnline) {
+        debugPrint("AppProvider: Online — checking location and updating rates");
+
+        // Auto-detect location silently if not saved
+        if (_location == null && _countryCode == null) {
+          await _trySilentLocationDetect();
+        }
+
+        // Force update if cache is stale (older than 8 hours)
+        final bool cacheStale = _metalRates == null ||
+            DateTime.now().difference(_metalRates!.lastUpdated).inHours >= 8;
+
+        if (cacheStale) {
+          debugPrint("AppProvider: Cache stale — force-refreshing rates");
+          await updateMetalRates(silent: true);
+        } else {
+          debugPrint("AppProvider: Cache fresh — skipping auto-update");
+        }
+      } else {
+        debugPrint("AppProvider: Offline — using cached/offline rates");
+      }
+    } catch (e) {
+      debugPrint("AppProvider: Auto-update check failed: $e");
+    }
+  }
+
+  /// Silently tries to detect GPS location without showing loading spinner.
+  Future<void> _trySilentLocationDetect() async {
+    try {
+      final locationData = await _locationService.autoDetectLocation();
+      if (locationData['location'] != null) {
+        _location = locationData['location'];
+        _countryCode = locationData['countryCode'];
+        await _storageService.saveLocation(_location!);
+        if (_countryCode != null) {
+          await _storageService.saveCountryCode(_countryCode!);
+        }
+        debugPrint("AppProvider: Silent location detected: $_location ($_countryCode)");
+      }
+    } catch (e) {
+      debugPrint("AppProvider: Silent location detect failed: $e");
     }
   }
 
@@ -103,28 +166,82 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> updateMetalRates({String? manualCurrency}) async {
+  /// Fetch and update metal rates.
+  /// [manualCurrency]: Override the currency (e.g. from settings).
+  /// [silent]: If true, doesn't show a loading spinner (for background refresh).
+  Future<bool> updateMetalRates({String? manualCurrency, bool silent = false}) async {
     try {
-      _isLoading = true;
-      notifyListeners();
-
-      String currency = manualCurrency ?? 'INR';
-      
-      // If no manual currency, try to determine from location
-      if (manualCurrency == null && _location != null) {
-        currency = _ratesService.getCurrencyForLocation(_location!);
+      if (!silent) {
+        _isLoading = true;
+        notifyListeners();
       }
 
-      _metalRates = await _ratesService.fetchCurrentRates(currency: currency);
+      // Determine currency from location if not manually overridden
+      String currency = manualCurrency ?? _resolveCurrency();
+
+      // Resolve city name for city-level India adjustments
+      final cityName = _extractCityName(_location);
+
+      _metalRates = await _ratesService.fetchCurrentRates(
+        currency: currency,
+        cityName: cityName,
+      );
       await _storageService.saveMetalRates(_metalRates!);
-      _isLoading = false;
+
+      if (!silent) {
+        _isLoading = false;
+      }
       notifyListeners();
       return true;
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      if (!silent) {
+        _isLoading = false;
+        notifyListeners();
+      }
       return false;
     }
+  }
+
+  /// Resolves the correct currency in priority order:
+  /// 1. Saved country code (from GPS)
+  /// 2. Location text match
+  /// 3. Device locale (e.g. en_IN → INR)
+  /// 4. INR as safe default (never USD — most Zakat app users are not USD-based)
+  String _resolveCurrency() {
+    if (_countryCode != null) {
+      final c = _ratesService.getCurrencyForCountry(_countryCode!);
+      debugPrint("AppProvider: currency from countryCode '$_countryCode' = $c");
+      return c;
+    }
+    if (_location != null) {
+      final c = _ratesService.getCurrencyForLocation(_location!);
+      if (c != 'USD') {
+        debugPrint("AppProvider: currency from location '$_location' = $c");
+        return c;
+      }
+    }
+    // Fallback: try device locale (works without GPS)
+    try {
+      final localeStr = Platform.localeName; // e.g. "hi_IN", "en_US"
+      final parts = localeStr.split('_');
+      if (parts.length >= 2) {
+        final localeCountry = parts.last; // "IN", "US", "PK", etc.
+        final c = _ratesService.getCurrencyForCountry(localeCountry);
+        if (c != 'USD') {
+          debugPrint("AppProvider: currency from locale '$localeStr' = $c");
+          return c;
+        }
+      }
+    } catch (_) {}
+    // Safe fallback — INR (not USD)
+    return 'INR';
+  }
+
+  /// Extracts the first meaningful word/segment from a location string as city name.
+  String? _extractCityName(String? location) {
+    if (location == null || location.isEmpty) return null;
+    // Location is typically "City, State, Country" — take first segment
+    return location.split(',').first.trim();
   }
 
   Future<List<Map<String, dynamic>>> fetchLocationSuggestions(String query) async {
@@ -139,17 +256,13 @@ class AppProvider with ChangeNotifier {
       final locationData = await _locationService.autoDetectLocation();
       if (locationData['location'] != null) {
         _location = locationData['location'];
+        _countryCode = locationData['countryCode'];
         await _storageService.saveLocation(_location!);
-        
-        // Determine currency and update rates
-        String currency = 'INR';
-        if (locationData['countryCode'] != null) {
-          currency = _ratesService.getCurrencyForCountry(locationData['countryCode']!);
-        } else {
-          currency = _ratesService.getCurrencyForLocation(_location!);
+        if (_countryCode != null) {
+          await _storageService.saveCountryCode(_countryCode!);
         }
-        
-        await updateMetalRates(manualCurrency: currency);
+
+        await updateMetalRates();
       }
 
       _isLoading = false;
@@ -162,17 +275,13 @@ class AppProvider with ChangeNotifier {
 
   Future<void> setLocation(String location, {String? countryCode}) async {
     _location = location;
+    _countryCode = countryCode;
     await _storageService.saveLocation(location);
-    
-    // Determine currency and update rates
-    String currency = 'INR';
     if (countryCode != null) {
-      currency = _ratesService.getCurrencyForCountry(countryCode);
-    } else {
-      currency = _ratesService.getCurrencyForLocation(location);
+      await _storageService.saveCountryCode(countryCode);
     }
-    
-    await updateMetalRates(manualCurrency: currency);
+
+    await updateMetalRates();
     notifyListeners();
   }
 
@@ -189,6 +298,7 @@ class AppProvider with ChangeNotifier {
     _lastCalculation = null;
     _savedCalculations = [];
     _location = null;
+    _countryCode = null;
     _isFirstLaunchValue = true;
     notifyListeners();
   }
